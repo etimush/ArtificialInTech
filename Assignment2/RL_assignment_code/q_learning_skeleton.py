@@ -3,7 +3,8 @@ import random
 NUM_EPISODES = 1000
 MAX_EPISODE_LENGTH = 500
 
-
+T = 3# Temperature for boltzman eqautions
+T_DECAY = 0.9
 DEFAULT_DISCOUNT = 0.9
 EPSILON = 0.05
 LEARNINGRATE = 0.1
@@ -15,21 +16,25 @@ class QLearner():
     """
     Q-learning agent
     """
-    def __init__(self, num_states, num_actions, discount=DEFAULT_DISCOUNT, learning_rate=LEARNINGRATE):
+    def __init__(self, num_states, num_actions, discount=DEFAULT_DISCOUNT, learning_rate=LEARNINGRATE, exploration_strat = 'egreedy'):
         self.name = "agent1"
         self.discount = discount
         self.learning_rate = learning_rate
         self.num_states = num_states
         self.num_actions = num_actions
+        self.episode_durrations = []
+        self.q = np.zeros((num_states, num_actions))
+        self.strategey = exploration_strat
+        self.pi = np.ones((num_states, num_actions))
 
-        self.q = np.zeros((num_states,num_actions))
-        
     # TODO: Select some interesting statistics to keep track of
     # Maybe total reward of the episode
-    def reset_episode(self):
+    def reset_episode(self, episode_duration):
+
         """
         Here you can update some of the statistics that could be helpful to maintain
         """
+        self.episode_durrations.append(episode_duration)
         pass
 
 
@@ -56,18 +61,30 @@ class QLearner():
     # This should probably be taken into account when answering the first questions, and they probably
     # want us to fix this with one of those solutions (probably the first)
     # However I'm not sure, maybe we should ask on Answers EWI
-    def select_action(self, state): 
-        selection = random.random()
-        all_zeroes = np.all(self.q[state][:] == self.q[state][0])
-        if selection <= EPSILON or all_zeroes:
-            return random.randrange(self.num_actions)
-        else:
-            return np.argmax(self.q[state][:])
+    def select_action(self, state):
+
+        if self.strategey == 'boltz':
+            self.pi = np.exp(self.q / max((T*(T_DECAY**len(self.episode_durrations))), 0.03))
+            sum_rows = np.sum(self.pi, axis=1)
+            self.pi = (self.pi.T / sum_rows).T
+            return np.random.choice(range(self.num_actions), p= self.pi[state])
+
+        if self.strategey == 'egreedy':
+            selection = random.random()
+            all_zeroes = np.all(self.q[state][:] == self.q[state][0])
+            if selection <= EPSILON or all_zeroes:
+                return random.randrange(self.num_actions)
+            else:
+                return np.argmax(self.q[state][:])
 
     # I cannot come up with something to print
-    def report(self):
+    def report(self,final):
         """
         Function to print useful information, printed during the main loop
         """
+        print("Last episode duration: ", self.episode_durrations[-1])
+        print("Average Epiusode duration: ", sum(self.episode_durrations) / len(self.episode_durrations))
+        if final:
+            return self.episode_durrations
         print("---")
 

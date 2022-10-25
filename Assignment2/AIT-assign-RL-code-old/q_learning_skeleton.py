@@ -4,7 +4,7 @@ import random
 NUM_EPISODES = 300
 MAX_EPISODE_LENGTH = 500
 
-T = 5
+T = 1.5
 DEFAULT_DISCOUNT = 0.9
 EPSILON = 0.05
 LEARNINGRATE = 0.1
@@ -16,7 +16,7 @@ class QLearner():
     """
     Q-learning agent
     """
-    def __init__(self, num_states, num_actions, discount=DEFAULT_DISCOUNT, learning_rate=LEARNINGRATE, exploration_strat = 'boltz'):
+    def __init__(self, num_states, num_actions, discount=DEFAULT_DISCOUNT, learning_rate=LEARNINGRATE, exploration_strat = 'egreedy'):
         self.name = "agent1"
         self.discount = discount
         self.learning_rate = learning_rate

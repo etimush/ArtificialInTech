@@ -53,13 +53,16 @@ def act_loop(env, agent, num_episodes,exploration_reward):
     episode_durations = agent.report(True)
     rolling_average_size = 8
     rolling_average = []
+
     plt.plot(range(len(episode_durations)), episode_durations)
 
     for i in range(len(episode_durations)-rolling_average_size):
         rolling_average.append(sum(episode_durations[i:i+rolling_average_size])/rolling_average_size)
 
+
     plt.plot(range(len(episode_durations)-rolling_average_size), rolling_average)
 
+    plt.title("Softmax search Strategy")
     plt.show()
     env.close()
 
