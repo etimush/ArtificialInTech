@@ -8,7 +8,7 @@ T_DECAY = 0.9
 DEFAULT_DISCOUNT = 0.9
 EPSILON = 0.05
 LEARNINGRATE = 0.1
-
+VI_THRESHOLD = 0.0005
 
 
 
@@ -27,8 +27,6 @@ class QLearner():
         self.strategey = exploration_strat
         self.pi = np.ones((num_states, num_actions))
 
-    # TODO: Select some interesting statistics to keep track of
-    # Maybe total reward of the episode
     def reset_episode(self, episode_duration):
 
         """
@@ -36,7 +34,6 @@ class QLearner():
         """
         self.episode_durrations.append(episode_duration)
         pass
-
 
     def process_experience(self, state, action, next_state, reward, done): 
         """
@@ -50,17 +47,6 @@ class QLearner():
         
         self.q[state,action] = update
 
-
-
-    # NOTE: At the beginning, when all values are 0, the max value selected is always the first
-    # Therefore, the agent almost always tries to go left, and it does not learn properly
-    # Possible Solutions:
-    # - Set the SLEEP_DEPRIVATION_PENALTY in simple_grid.py to a value less than 0 (originally 0, currently set to -0.1)
-    # - Select randomly if all values are the same
-    # - Avoid actions that takes us out of the border (for example, not go up or left in the first cell) I don't think this is the intended solution
-    # This should probably be taken into account when answering the first questions, and they probably
-    # want us to fix this with one of those solutions (probably the first)
-    # However I'm not sure, maybe we should ask on Answers EWI
     def select_action(self, state):
 
         if self.strategey == 'boltz':
@@ -84,7 +70,37 @@ class QLearner():
         """
         print("Last episode duration: ", self.episode_durrations[-1])
         print("Average Epiusode duration: ", sum(self.episode_durrations) / len(self.episode_durrations))
+        if len(self.episode_durrations) > 20:
+            print("Rolling average duration of last 20 episodes: ", sum(self.episode_durrations[-20:])/20)
+        
         if final:
             return self.episode_durrations
         print("---")
 
+    def value_iteration(self, env):
+        Q = np.zeros((self.num_states, self.num_actions))
+        while True:
+            max_D = 0
+            prev_Q = Q.copy()                                   # copy of the current Q values
+            for s in range(self.num_states-1):                  # terminal state is ignored, obviously
+                for a in range(self.num_actions):               # P dictionary dict of dicts of lists, where
+                    transitions = env.P[s][a]                   # P[s][a] == [(probability, nextstate, reward, done), ...]
+                    sum = 0
+                    for t in transitions:
+                        prob_t = t[0]                           # probability of transitioning to s'
+                        next_state = t[1]                       # s'
+                        r = t[2]                                # R(s, a, s')
+                        prevQs = np.max(prev_Q[next_state][:])  # max of previous Q values for s'
+                        sum += prob_t * (r + self.discount * prevQs)
+                    Q[s][a] = sum
+                    if max_D < abs((Q[s][a] - prev_Q[s][a])):
+                        max_D = abs((Q[s][a] - prev_Q[s][a]))
+            if max_D < VI_THRESHOLD:
+                break
+        return Q
+
+    def extract_policy(self, Q):
+        policy = []
+        for s in range(self.num_states):
+            policy.append(np.argmax(Q[s][:]))
+        return policy
