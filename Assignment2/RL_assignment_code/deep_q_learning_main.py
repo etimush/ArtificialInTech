@@ -55,8 +55,9 @@ def act_loop(env, agent, num_episodes):
 if __name__ == "__main__":
     # from def_env import env  #<- defines env
     env = RecordVideo(gym.make('LunarLander-v2'), './recorded_episodes', episode_trigger=lambda x: (x % 10 == 0) or (x == NUM_EPISODES), name_prefix='lunarlander')
-    print("action space:", env.action_space)
-    print("observ space:", env.observation_space)
+    f = open("output.txt", "w")
+    f.writelines("action space:" + str(env.action_space))
+    f.writelines("observ space:" + str(env.observation_space))
 
     num_a = env.action_space.n
     shape_o = env.observation_space.shape
@@ -67,11 +68,11 @@ if __name__ == "__main__":
 
     discount = DEFAULT_DISCOUNT
 
-    ql = QLearner(env, qn, discount) #<- QNet
+    #ql = QLearner(env, qn, discount) #<- QNet
 
     # TODO: Coding exercise 4: target network
-    # target_qn = QNet_MLP(num_a, shape_o)
-    # target_qn.load_state_dict(qn.state_dict())
-    # ql = QLearner(env, qn, target_qn, discount)  # <- QNet
+    target_qn = QNet_MLP(num_a, shape_o)
+    target_qn.load_state_dict(qn.state_dict())
+    ql = QLearner(env, qn, target_qn, discount)  # <- QNet
 
     act_loop(env, ql, NUM_EPISODES)
