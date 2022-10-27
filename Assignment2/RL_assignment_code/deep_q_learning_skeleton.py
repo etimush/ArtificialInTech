@@ -5,7 +5,9 @@ import random
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
 from collections import deque
+
 # if gpu is to be used
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -13,6 +15,9 @@ import debug_utils
 
 NUM_EPISODES = 500
 MAX_EPISODE_LENGTH = 30000
+#
+# NUM_EPISODES = 5
+# MAX_EPISODE_LENGTH = 300
 
 RMSIZE = 10000 # replay memory size
 BATCH_SIZE = 256  # size of replay memory batch (= the number of updates for each real step)
@@ -38,7 +43,6 @@ class ReplayMemory(object):
     # Randomly sample "batch_size" experiences from the memory and return them
     def sample_batch(self, batch_size):
         return random.sample(self.replay_memory, batch_size)
-
 
 # DEBUG=True
 DEBUG = False
@@ -71,7 +75,7 @@ class QNet(nn.Module):
 
         if batch_size > 1:
             v,_ = Qs.max(dim=1)
-        else: 
+        else:
             v = Qs.max()
         v = v.detach().numpy()
         #print ("... Vs: %s" % v)
@@ -83,7 +87,7 @@ class QNet(nn.Module):
         t_Qs = self.forward(observation) #<- this should feed in the input
 
         #NOOO! this will *not* randomly break ties(!)...
-        # m = np.argmax(self.data[observation, :]) 
+        # m = np.argmax(self.data[observation, :])
         #instead:
         Qs = t_Qs.detach().numpy()
         if DEBUG:
@@ -113,14 +117,14 @@ class QNet(nn.Module):
         t_prev_observation = self.obs_to_tensor(prev_observation)
 
         if done:
-            future_val = 0 
+            future_val = 0
         else:
             future_val = self.max_Q_value(t_observation)        ##<<- this evaluates the QNet
-        # We just evaluated the Qnet for the next-stage variables, but of course... the effect of the Qnet 
-        # parameters on the *next-stage* value is ignored by Q-learning. 
-        # (residual gradient algorithms do takes this into account, but 
+        # We just evaluated the Qnet for the next-stage variables, but of course... the effect of the Qnet
+        # parameters on the *next-stage* value is ignored by Q-learning.
+        # (residual gradient algorithms do takes this into account, but
         #   formally need 2 successor state samples)
-        # So... we need to reset the gradients. (otherwise they accumulate e.g., see; 
+        # So... we need to reset the gradients. (otherwise they accumulate e.g., see;
         # https://medium.com/@zhang_yang/how-pytorch-tensors-backward-accumulates-gradient-8d1bf675579b)
         self.zero_grad()
 
@@ -200,9 +204,10 @@ class QNet_MLP(QNet):
 
 
 class QLearner(object):
-    def __init__(self, env, q_function, discount=DEFAULT_DISCOUNT, rm_size=RMSIZE):
+    def __init__(self, env, q_function, target_qn, discount=DEFAULT_DISCOUNT, rm_size=RMSIZE):
         self.env = env
         self.Q = q_function
+        self.target_network = target_qn         # Coding exercise 4
         self.rm = ReplayMemory(rm_size)  # replay memory stores (a subset of) experience across episode
         self.discount = discount
 
@@ -237,9 +242,11 @@ class QLearner(object):
         self.dis_r += reward * (self.discount ** self.stage)
         self.stage += 1
         self.Q.single_Q_update(prev_observation, action, observation, reward, done)
+        self.target_network.single_Q_update(prev_observation, action, observation, reward, done)
         self.last_obs = observation
 
         # TODO coding exercise 3: Do a batch update using experience stored in the replay memory
+        # TODO !THIS PART IS DONE!
         self.rm.store_experience(prev_observation, action, observation, reward, done)
         if self.tot_stages > 10 * self.batch_size:
             # sample a batch of batch_size from the memory
@@ -259,7 +266,9 @@ class QLearner(object):
                 sample_dones.append(i[4])
 
             self.Q.batch_Q_update(np.array(sample_prev_obs), np.array(sample_actions), np.array(sample_observations), np.array(sample_rewards), np.array(sample_dones))
-
+            self.target_network.batch_Q_update(np.array(sample_prev_obs), np.array(sample_actions), np.array(sample_observations),
+                                  np.array(sample_rewards), np.array(sample_dones))
+        self.target_network.load_state_dict(self.Q.state_dict())
 
 
     def select_action(self):
